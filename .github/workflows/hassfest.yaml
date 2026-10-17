@@ -19,6 +19,8 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # No brand assets yet (the MCZ logo must not be used); only needed for the HACS default list
+          ignore: brands
 
   tests:
     runs-on: ubuntu-latest
