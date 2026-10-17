@@ -174,7 +174,9 @@
           "off": "Off",
           "no_sensor": "No thermometer",
           "idle": "Waiting",
-          "heating": "Heating"
+          "heating": "Heating",
+          "outside_schedule": "Outside schedule",
+          "target_reached": "Target reached"
         }
       }
     },
@@ -212,6 +214,13 @@
     "select": {
       "heating_level": {
         "name": "Heating level"
+      },
+      "smart_strategy": {
+        "name": "Smart strategy",
+        "state": {
+          "chrono": "Within chrono only",
+          "extend": "Additional heating"
+        }
       }
     },
     "calendar": {

@@ -113,6 +113,7 @@ class MczSmartSwitch(MczManagerEntity, SwitchEntity):
         """Show what the smart mode is doing."""
         return {
             "status": self.manager.smart_state,
+            "strategy": self.manager.settings["smart_strategy"],
             "external_sensor": self.manager.external_sensor,
             "external_temperature": self.manager.external_temperature,
             "target": self.manager.settings["smart_target"],

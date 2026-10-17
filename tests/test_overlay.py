@@ -108,3 +108,55 @@ def test_roundtrip_storage():
     table.add("boost", now, SAT.replace(hour=15), 3, days, now)
     again = overlay.OverlayTable(table.as_dict())
     assert again.apply(days) == table.apply(days)
+
+
+def test_smart_off_overrides_everything():
+    days = empty_week()
+    days[6][30:34] = [1, 1, 1, 1]  # Saturday 15:00-17:00 T1
+    table = overlay.OverlayTable()
+    now = SAT.replace(hour=16, minute=10)
+    table.add("boost", SAT.replace(hour=16), SAT.replace(hour=17), 3, days, now)
+    table.add("smart_off", SAT.replace(hour=16), SAT.replace(hour=17), 0, days, now)
+    live = table.apply(days)
+    assert live[6][30:34] == [1, 1, 0, 0]
+    # ignoring smart_off shows the period the smart mode regulates
+    assert table.apply(days, exclude="smart_off")[6][32:34] == [3, 3]
+    assert table.owner_at("smart_off", now)
+    assert not table.owner_at("smart_off", SAT.replace(hour=15, minute=40))
+
+
+def test_active_period():
+    days = empty_week()
+    days[6][30:34] = [1, 1, 1, 1]  # Saturday 15:00-17:00
+    assert overlay.active_period(days, SAT.replace(hour=16, minute=10)) == (
+        SAT.replace(hour=15),
+        SAT.replace(hour=17),
+    )
+    assert overlay.active_period(days, SAT.replace(hour=17)) is None
+    assert overlay.active_period(days, SAT.replace(hour=14, minute=59)) is None
+
+
+def test_active_period_over_midnight():
+    days = empty_week()
+    days[6][46:48] = [2, 2]  # Saturday 23:00-24:00
+    days[0][0:2] = [2, 2]  # Sunday 00:00-01:00
+    start, end = overlay.active_period(days, SAT.replace(hour=23, minute=40))
+    assert (start, end) == (SAT.replace(hour=23), datetime(2026, 10, 18, 1, 0))
+
+
+def test_smart_chrono_scenario():
+    """Program 15:00-17:00, target reached at 16:10, cold again at 16:40."""
+    days = empty_week()
+    days[6][30:34] = [1, 1, 1, 1]
+    table = overlay.OverlayTable()
+    reached = SAT.replace(hour=16, minute=10)
+    start, end = overlay.active_period(table.apply(days, exclude="smart_off"), reached)
+    table.add("smart_off", reached, end, 0, days, reached)
+    assert table.apply(days)[6][30:34] == [1, 1, 0, 0]  # off from 16:00
+    cold = SAT.replace(hour=16, minute=40)
+    restore = table.remove("smart_off", start=cold)
+    days_after = table.apply(days)
+    for (d, s), orig in restore.items():
+        days_after[d][s] = orig
+    assert days_after[6][33] == 1  # 16:30-17:00 heats again
+    assert table.expire(SAT.replace(hour=17)) == {(6, 32): 1}  # past slot restored later

@@ -51,7 +51,7 @@ Please read the [safety notice](#safety-notice) before use.
 | Feature | Description |
 |---|---|
 | **Start / stop** | One button writes heating time into the chrono table from now for the chosen duration (hour slider); another removes it again. |
-| **Smart mode** | Heats via the chrono until an **external thermometer** reaches a target temperature. Can be switched on and off; with hysteresis and minimum runtime. |
+| **Smart mode** | Uses an **external thermometer**: switches the stove off within a heating period once the target is reached (default), or heats additionally when it gets too cold. With hysteresis and minimum runtime. |
 | **Calendar** | The weekly program as a Home Assistant calendar: see all heating times in week/day/list view, create and delete entries right in the calendar. |
 | **One-off entries** | Calendar entries without repetition heat exactly once – the weekly program stays as it is. Single occurrences of the weekly program can be skipped once. |
 | **Day overview** | One sensor per weekday, e.g. `08:00–09:00, 15:00–16:00 (T1)`. |
@@ -135,7 +135,8 @@ language and prefixes them with the device name.
 | Heating until | Sensor (timestamp) | End of the running heating period, empty if none |
 | Smart mode | Switch | Smart mode on/off |
 | Smart target temperature | Number (5–30 °C) | Target at the external thermometer |
-| Smart status | Sensor | `Off`, `No thermometer`, `Waiting`, `Heating` |
+| Smart strategy | Select | `Within chrono only` (default) or `Additional heating` |
+| Smart status | Sensor | `Off`, `No thermometer`, `Outside schedule`, `Heating`, `Target reached`, `Waiting` |
 | Chrono | Calendar | Weekly program and temporary entries |
 | Chrono Monday … Sunday | Sensor | Heating times of the day; attribute `schedule` as a list |
 | Chrono mode | Switch | Chrono mode; while on, the chrono watchdog keeps it on |
@@ -175,23 +176,55 @@ half hour). The stove starts through its chrono. **Heating until** shows the end
 
 ### Smart mode with an external thermometer
 
-Smart mode heats until a thermometer of your choice (e.g. in the living room)
-reaches the target temperature:
+Smart mode compares a thermometer of your choice (e.g. in the living room) with
+the **Smart target temperature**. Switch it on with **Smart mode** and choose how
+it works with **Smart strategy**.
+
+#### Strategy "Within chrono only" (default)
+
+The calendar decides **when** heating is allowed, the thermometer decides
+**whether** it is needed. Smart mode only acts during a heating period – a time
+of the weekly program, a start button period or a one-off entry.
+
+| Situation | Reaction |
+|---|---|
+| No heating period now | Nothing – the calendar says not to heat (status *Outside schedule*) |
+| Heating period, temperature below target | The stove heats as programmed (status *Heating*) |
+| Temperature ≥ target and minimum runtime reached | The **rest of the period** is switched off once; the stove stops (status *Target reached*) |
+| Switched off and temperature ≤ target − hysteresis while the period still runs | The rest of the period is switched on again; the stove resumes |
+| Period over | Everything is back to the weekly program |
+
+Example: chrono 15:00–17:00, target 21 °C. At 16:10 the thermometer shows
+21 °C → the stove switches off for 16:00–17:00. If the room cools to 20.5 °C at
+16:40, the stove resumes until 17:00. Next week 15:00–17:00 applies again – the
+weekly program itself is never changed.
+
+The minimum runtime counts from the start of the period (or from resuming), so
+the stove is not switched off right after ignition.
+
+#### Strategy "Additional heating"
+
+Heats additionally – also outside the program – whenever it gets too cold:
 
 | Situation | Reaction |
 |---|---|
 | Temperature ≤ target − hysteresis | Start: the current slot and the next 60 minutes are written into the chrono |
 | Heating and temperature < target | The entry is extended continuously (always about 30–60 min ahead) |
 | Temperature ≥ target and minimum runtime reached | The smart entries are removed; the stove stops through its chrono |
-| Thermometer unavailable | No change until values come back |
-| Smart mode switched off | Running smart entries are removed |
 
-- Smart mode heats with the selected **Heating level**. Tip: set that level
-  (e.g. T3) a bit above the target temperature, otherwise the stove throttles
-  down early based on its own sensor.
-- Smart mode **adds** to the weekly program: programmed times keep running even
-  if the target has been reached.
-- It is evaluated on every thermometer change and every poll of the stove.
+Programmed times keep running in this strategy even if the target is reached.
+
+#### Good to know
+
+- **Hysteresis** is the gap below the target before the stove (re)starts:
+  with target 21 °C and hysteresis 0.5 °C it starts at 20.5 °C and stops at
+  21 °C. In between nothing changes, which prevents frequent ignitions.
+- Within a heating period the stove regulates by its own sensor and the level's
+  temperature. Set the **Heating level** (e.g. T3) a bit above the smart target,
+  otherwise the stove throttles down before the room reaches the target.
+- If the thermometer is unavailable, nothing changes until values come back.
+  Switching smart mode off removes all its changes.
+- Smart mode is evaluated on every thermometer change and every poll of the stove.
 
 ### Weekly program in the calendar
 

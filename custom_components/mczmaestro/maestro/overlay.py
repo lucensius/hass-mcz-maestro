@@ -21,6 +21,7 @@ OWNER_BOOST = "boost"
 OWNER_SMART = "smart"
 OWNER_ONCE = "once"
 OWNER_SKIP = "skip"  # level 0: switch a slot of the base program off once
+OWNER_SMART_OFF = "smart_off"  # level 0: smart mode reached the target, overrides everything
 
 
 def floor_slot(value: datetime) -> datetime:
@@ -117,9 +118,13 @@ class OverlayTable:
                 entry["orig"] = slots[slot]
 
     @staticmethod
-    def level(entry: dict) -> int:
-        """Level a slot gets with its overlays applied."""
-        owners = entry["owners"]
+    def level(entry: dict, exclude: str | None = None) -> int:
+        """Level a slot gets with its overlays (except exclude) applied."""
+        owners = {o: lvl for o, lvl in entry["owners"].items() if o != exclude}
+        if not owners:
+            return entry["orig"]
+        if OWNER_SMART_OFF in owners:
+            return 0
         levels = [lvl for owner, lvl in owners.items() if owner != OWNER_SKIP]
         if not levels:
             return 0
@@ -127,12 +132,12 @@ class OverlayTable:
             return max(levels)
         return max([entry["orig"], *levels])
 
-    def apply(self, days: list[list[int]]) -> list[list[int]]:
-        """Days as they must be written to the stove."""
+    def apply(self, days: list[list[int]], exclude: str | None = None) -> list[list[int]]:
+        """Days as they must be written to the stove (optionally ignoring one owner)."""
         result = [list(day) for day in days]
         for when, entry in self._items():
             day, slot = day_slot(when)
-            result[day][slot] = self.level(entry)
+            result[day][slot] = self.level(entry, exclude)
         return result
 
     def base_days(self, days: list[list[int]]) -> list[list[int]]:
@@ -147,6 +152,11 @@ class OverlayTable:
         """End of the last slot held by owner."""
         ends = [when + SLOT for when, entry in self._items() if owner in entry["owners"]]
         return max(ends) if ends else None
+
+    def owner_at(self, owner: str, when: datetime) -> bool:
+        """Whether owner holds the slot containing when."""
+        entry = self.slots.get(_key(floor_slot(when)))
+        return bool(entry) and owner in entry["owners"]
 
     def has_owner(self, owner: str) -> bool:
         """Whether owner holds any slot."""
@@ -164,3 +174,22 @@ class OverlayTable:
             else:
                 result.append({"start": when, "end": when + SLOT, "level": level, "owners": owners})
         return result
+
+
+def active_period(days: list[list[int]], now: datetime) -> tuple[datetime, datetime] | None:
+    """The contiguous heating period (level > 0) containing now, or None."""
+
+    def active(when: datetime) -> bool:
+        day, slot = day_slot(when)
+        return days[day][slot] > 0
+
+    current = floor_slot(now)
+    if not active(current):
+        return None
+    start = current
+    while active(start - SLOT) and current - start < WEEK:
+        start -= SLOT
+    end = current + SLOT
+    while active(end) and end - current < WEEK:
+        end += SLOT
+    return start, end

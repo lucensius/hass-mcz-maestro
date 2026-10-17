@@ -81,7 +81,9 @@
           "off": "Arrêt",
           "no_sensor": "Pas de thermomètre",
           "idle": "En attente",
-          "heating": "Chauffe"
+          "heating": "Chauffe",
+          "outside_schedule": "Hors programme",
+          "target_reached": "Cible atteinte"
         }
       }
     },
@@ -119,6 +121,13 @@
     "select": {
       "heating_level": {
         "name": "Niveau de chauffe"
+      },
+      "smart_strategy": {
+        "name": "Stratégie smart",
+        "state": {
+          "chrono": "Uniquement pendant le chrono",
+          "extend": "Chauffe supplémentaire"
+        }
       }
     },
     "calendar": {

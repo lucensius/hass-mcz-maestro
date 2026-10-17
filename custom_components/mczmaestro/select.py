@@ -12,6 +12,7 @@ from .const import DOMAIN, MANAGER
 from .entity import MczManagerEntity
 
 LEVEL_OPTIONS = ["T1", "T2", "T3"]
+STRATEGY_OPTIONS = ["chrono", "extend"]
 
 
 async def async_setup_entry(
@@ -21,7 +22,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up the select."""
     manager = hass.data[DOMAIN][config_entry.entry_id][MANAGER]
-    async_add_entities([MczLevelSelect(manager, "Heating_Level")])
+    async_add_entities(
+        [
+            MczLevelSelect(manager, "Heating_Level"),
+            MczStrategySelect(manager, "Smart_Strategy"),
+        ]
+    )
 
 
 class MczLevelSelect(MczManagerEntity, SelectEntity):
@@ -46,3 +52,19 @@ class MczLevelSelect(MczManagerEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         """Change the level."""
         await self.manager.async_set_setting("level", LEVEL_OPTIONS.index(option) + 1)
+
+
+class MczStrategySelect(MczManagerEntity, SelectEntity):
+    """How the smart mode works: only within chrono periods, or additionally."""
+
+    _attr_icon = "mdi:strategy"
+    _attr_options = STRATEGY_OPTIONS
+
+    @property
+    def current_option(self) -> str:
+        """Return the selected strategy."""
+        return self.manager.settings["smart_strategy"]
+
+    async def async_select_option(self, option: str) -> None:
+        """Change the strategy."""
+        await self.manager.async_set_setting("smart_strategy", option)

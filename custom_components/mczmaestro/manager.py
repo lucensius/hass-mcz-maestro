@@ -29,8 +29,10 @@ from .maestro.overlay import (
     OWNER_ONCE,
     OWNER_SKIP,
     OWNER_SMART,
+    OWNER_SMART_OFF,
     SLOT,
     OverlayTable,
+    active_period,
     ceil_slot,
     floor_slot,
 )
@@ -43,6 +45,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "boost_hours": 2.0,
     "level": 3,
     "smart_enabled": False,
+    "smart_strategy": "chrono",
     "smart_target": 21.0,
     "smart_hysteresis": 0.5,
     "smart_min_runtime": 60,
@@ -59,6 +62,12 @@ SMART_OFF = "off"
 SMART_NO_SENSOR = "no_sensor"
 SMART_IDLE = "idle"
 SMART_HEATING = "heating"
+SMART_OUTSIDE_SCHEDULE = "outside_schedule"
+SMART_TARGET_REACHED = "target_reached"
+
+# Smart strategies
+STRATEGY_CHRONO = "chrono"  # regulate only within heating periods of the chrono
+STRATEGY_EXTEND = "extend"  # heat additionally whenever it is too cold
 
 
 def now_local() -> datetime:
@@ -178,7 +187,21 @@ class ChronoManager:
             return SMART_OFF
         if self.external_temperature is None:
             return SMART_NO_SENSOR
+        if self.settings["smart_strategy"] == STRATEGY_CHRONO:
+            now = now_local()
+            if self._smart_period(now) is None:
+                return SMART_OUTSIDE_SCHEDULE
+            if self.overlays.owner_at(OWNER_SMART_OFF, now):
+                return SMART_TARGET_REACHED
+            return SMART_HEATING
         return SMART_HEATING if self.overlays.has_owner(OWNER_SMART) else SMART_IDLE
+
+    def _smart_period(self, now: datetime) -> tuple[datetime, datetime] | None:
+        """Heating period (program, start button, one-off) containing now, ignoring smart cut-offs."""
+        if not self.chrono:
+            return None
+        days = self.overlays.apply(self.overlays.base_days(self.chrono.days), exclude=OWNER_SMART_OFF)
+        return active_period(days, now)
 
     @property
     def external_temperature(self) -> float | None:
@@ -321,14 +344,30 @@ class ChronoManager:
     async def async_evaluate_smart(self) -> None:
         """Start or stop heating depending on the external thermometer."""
         now = now_local()
-        heating = self.overlays.has_owner(OWNER_SMART)
-        temperature = self.external_temperature
+        enabled = self.settings["smart_enabled"]
+        strategy = self.settings["smart_strategy"]
 
-        if not self.settings["smart_enabled"]:
-            if heating:
-                self.smart_started = None
-                await self._async_run(lambda fresh: self.overlays.remove(OWNER_SMART))
+        # Drop what the inactive strategy (or a disabled smart mode) left in the table
+        stale = []
+        if not enabled or strategy != STRATEGY_EXTEND:
+            stale.append(OWNER_SMART)
+        if not enabled or strategy != STRATEGY_CHRONO:
+            stale.append(OWNER_SMART_OFF)
+        stale = [owner for owner in stale if self.overlays.has_owner(owner)]
+        if stale:
+            self.smart_started = None
+
+            def release(fresh: ChronoProgram) -> dict:
+                restore: dict = {}
+                for owner in stale:
+                    restore.update(self.overlays.remove(owner))
+                return restore
+
+            await self._async_run(release)
+        if not enabled:
             return
+
+        temperature = self.external_temperature
         if temperature is None:
             return  # keep the current state until the sensor is back
 
@@ -336,6 +375,58 @@ class ChronoManager:
         hysteresis = float(self.settings["smart_hysteresis"])
         min_runtime = timedelta(minutes=int(self.settings["smart_min_runtime"]))
 
+        if strategy == STRATEGY_CHRONO:
+            await self._async_smart_chrono(now, temperature, target, hysteresis, min_runtime)
+        else:
+            await self._async_smart_extend(now, temperature, target, hysteresis, min_runtime)
+
+    async def _async_smart_chrono(
+        self,
+        now: datetime,
+        temperature: float,
+        target: float,
+        hysteresis: float,
+        min_runtime: timedelta,
+    ) -> None:
+        """Within a heating period: switch off at the target, resume when it gets cold again."""
+        period = self._smart_period(now)
+        if period is None:
+            return  # no heating period: the calendar says do not heat
+        start, end = period
+
+        if self.overlays.owner_at(OWNER_SMART_OFF, now):
+            if temperature <= target - hysteresis:
+                _LOGGER.info(
+                    "Smart mode: %.1f °C below target %.1f °C, resuming until %s",
+                    temperature, target, end.strftime("%H:%M"),
+                )
+                self.smart_started = now
+                await self._async_run(lambda fresh: self.overlays.remove(OWNER_SMART_OFF, start=now))
+            return
+
+        started = max(start, self.smart_started) if self.smart_started else start
+        if temperature >= target and now - started >= min_runtime:
+            _LOGGER.info(
+                "Smart mode: %.1f °C reached target %.1f °C, switching off until %s",
+                temperature, target, end.strftime("%H:%M"),
+            )
+
+            def mutate(fresh: ChronoProgram) -> dict:
+                self.overlays.add(OWNER_SMART_OFF, now, end, 0, fresh.days, now)
+                return {}
+
+            await self._async_run(mutate)
+
+    async def _async_smart_extend(
+        self,
+        now: datetime,
+        temperature: float,
+        target: float,
+        hysteresis: float,
+        min_runtime: timedelta,
+    ) -> None:
+        """Heat additionally whenever it is too cold."""
+        heating = self.overlays.has_owner(OWNER_SMART)
         if heating:
             ran_long_enough = self.smart_started is None or now - self.smart_started >= min_runtime
             if temperature >= target and ran_long_enough:

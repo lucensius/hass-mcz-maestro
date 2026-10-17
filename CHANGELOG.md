@@ -68,3 +68,9 @@
 
 - Fan entities for the front fan and ducted fans the stove is fitted with (read from the parameter frame): automatic mode (default), manual levels, off only where allowed and never for the last running fan; refused while silent mode is on
 - Stove parameter frame parser with unit tests
+
+## 0.6.0
+
+- Smart strategy "Within chrono only" (new default): smart mode acts only during heating periods (weekly program, start button, one-off entries) and switches the rest of the period off once the target is reached; resumes when it gets cold again during the period
+- Previous behaviour available as strategy "Additional heating"
+- Smart status shows "Outside schedule" and "Target reached"

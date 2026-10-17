@@ -150,7 +150,7 @@ class MczSmartStatusSensor(MczManagerEntity, SensorEntity):
     """What the smart mode is doing."""
 
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ["off", "no_sensor", "idle", "heating"]
+    _attr_options = ["off", "no_sensor", "idle", "heating", "outside_schedule", "target_reached"]
     _attr_icon = "mdi:robot-outline"
 
     @property
@@ -166,4 +166,5 @@ class MczSmartStatusSensor(MczManagerEntity, SensorEntity):
             "external_temperature": self.manager.external_temperature,
             "target": self.manager.settings["smart_target"],
             "hysteresis": self.manager.settings["smart_hysteresis"],
+            "strategy": self.manager.settings["smart_strategy"],
         }

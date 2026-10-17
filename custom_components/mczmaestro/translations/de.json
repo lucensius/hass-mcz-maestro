@@ -174,7 +174,9 @@
           "off": "Aus",
           "no_sensor": "Kein Thermometer",
           "idle": "Wartet",
-          "heating": "Heizt"
+          "heating": "Heizt",
+          "outside_schedule": "Kein Heiztermin",
+          "target_reached": "Ziel erreicht"
         }
       }
     },
@@ -212,6 +214,13 @@
     "select": {
       "heating_level": {
         "name": "Heizstufe"
+      },
+      "smart_strategy": {
+        "name": "Smart-Strategie",
+        "state": {
+          "chrono": "Nur im Chrono-Zeitraum",
+          "extend": "Zusätzlich heizen"
+        }
       }
     },
     "calendar": {
