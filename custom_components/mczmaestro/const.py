@@ -18,3 +18,4 @@ CONF_EXTERNAL_SENSOR = "external_sensor"
 
 SERVICE_START_HEATING = "start_heating"
 SERVICE_STOP_HEATING = "stop_heating"
+PARAMETERS = "parameters"

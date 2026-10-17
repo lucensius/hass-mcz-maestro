@@ -33,6 +33,7 @@ Please read the [safety notice](#safety-notice) before use.
   - [Day overview](#day-overview)
   - [Chrono watchdog](#chrono-watchdog)
   - [Stove clock](#stove-clock)
+  - [Fans](#fans)
   - [Climate entity](#climate-entity)
 - [Actions](#actions)
 - [Examples](#examples)
@@ -56,6 +57,7 @@ Please read the [safety notice](#safety-notice) before use.
 | **Day overview** | One sensor per weekday, e.g. `08:00–09:00, 15:00–16:00 (T1)`. |
 | **Chrono watchdog** | If chrono mode is turned off at the stove or in the app, the integration turns it back on. |
 | **Clock sync** | The stove clock (which the chrono runs on) is set automatically when it drifts by more than 2 minutes. |
+| **Fans** | Front and ducted fans as fan entities: automatic mode (default), manual levels 1–5, off where the stove allows it. Only fitted fans are created. |
 | **T1 / T2 / T3** | Read and set the three chrono temperatures (5–35 °C, T1 < T2 < T3). |
 | **Actions** | `start_heating`, `stop_heating`, `set_chrono_day`, `copy_chrono_day` for automations and scripts. |
 | **Robust connection** | Reconnects automatically; retries setup while the stove is unreachable. |
@@ -137,6 +139,7 @@ language and prefixes them with the device name.
 | Chrono | Calendar | Weekly program and temporary entries |
 | Chrono Monday … Sunday | Sensor | Heating times of the day; attribute `schedule` as a list |
 | Chrono mode | Switch | Chrono mode; while on, the chrono watchdog keeps it on |
+| Fan / Ducted fan 1 / Ducted fan 2 | Fan | Fan level: preset *Automatic* or manual speed; only fans the stove is fitted with |
 
 ### Configuration and diagnostics
 
@@ -246,6 +249,24 @@ watchdog off. No other function of this integration switches the chrono off.
 The chrono runs on the stove's internal clock. If it differs by more than
 2 minutes from Home Assistant's time, it is set automatically (at most once per
 hour). The **Sync clock** button sets it immediately.
+
+### Fans
+
+The integration reads which fans the stove is fitted with (front fan, ducted
+fan 1 and 2) and creates a fan entity for each of them.
+
+| Action in Home Assistant | Effect on the stove |
+|---|---|
+| Turn on | **Automatic** mode – the stove chooses the speed (default) |
+| Preset *Automatic* | Automatic mode |
+| Speed 20 / 40 / 60 / 80 / 100 % | Manual level 1 / 2 / 3 / 4 / 5 |
+| Turn off | "No air" – only offered if the stove allows it and another fan keeps running |
+
+- The attribute `level` shows the raw value: `0` off, `1`–`5` manual, `6` automatic.
+- While **silent mode** is on, the stove controls the fans itself; changing
+  them is refused until silent mode is switched off.
+- Like the official app, the integration never switches off the last running
+  fan. With only a front fan, "off" is therefore not available.
 
 ### Climate entity
 
@@ -466,6 +487,7 @@ python3 -m pytest tests
 | `manager.py` | Start/stop, smart mode, chrono watchdog, clock, storage |
 | `calendar.py` | Calendar entity |
 | `services.py` | Actions |
+| `fan.py`, `maestro/parameters.py` | Fans and the stove parameter frame |
 | `docs/PROTOCOL.md` | Notes on the local protocol |
 
 Issues and pull requests are welcome.

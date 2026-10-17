@@ -13,7 +13,15 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CHRONO, CONTROLLER, COORDINATOR, DOMAIN, MANAGER, UNDO_UPDATE_LISTENER
+from .const import (
+    CHRONO,
+    CONTROLLER,
+    COORDINATOR,
+    DOMAIN,
+    MANAGER,
+    PARAMETERS,
+    UNDO_UPDATE_LISTENER,
+)
 from .manager import ChronoManager
 from .maestro import CONNECTION_ERRORS, MaestroController
 from .services import async_setup_services
@@ -25,6 +33,7 @@ PLATFORMS = [
     Platform.BUTTON,
     Platform.CALENDAR,
     Platform.CLIMATE,
+    Platform.FAN,
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
@@ -81,6 +90,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     undo_listener = entry.add_update_listener(_async_update_listener)
 
+    try:
+        parameters = await hass.async_add_executor_job(controller.read_parameters)
+    except (*CONNECTION_ERRORS, ValueError) as err:
+        _LOGGER.warning("Could not read stove parameters, fans not available: %s", err)
+        parameters = []
+
     manager = ChronoManager(hass, entry, controller, coordinator)
     await manager.async_setup()
 
@@ -88,6 +103,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         CONTROLLER: controller,
         COORDINATOR: coordinator,
         MANAGER: manager,
+        PARAMETERS: parameters,
         CONF_HOST: controller.host,
         CONF_PORT: controller.port,
         UNDO_UPDATE_LISTENER: undo_listener,

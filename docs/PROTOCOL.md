@@ -24,6 +24,25 @@ included. Values may differ between stove models and firmware versions.
 
 Unknown commands get an empty reply. Commands are prefix matched by the mainboard.
 
+## Parameter frame and fans
+
+`C|RecuperoParametri` → `00|<hex payload>`, one byte per value (payload without
+the frame type):
+
+| Byte | Meaning |
+|---|---|
+| 2 / 3 | Setpoint minimum / maximum (°C) |
+| 6 / 7 | Power level minimum / maximum |
+| 8–13 | Front fan: fitted, enabled, min level, max level, automatic allowed, off allowed |
+| 14–19 | Ducted fan 1: same layout |
+| 20–25 | Ducted fan 2: same layout |
+
+Fan level: `C|WriteParametri|37|<level>` (front), `38` (ducted 1), `39` (ducted 2).
+Level `0` = off ("no air"), `min..max` = manual, `max + 1` (usually `6`) = automatic.
+Current levels are fields 2, 3 and 4 of the `01` frame. The official app does not
+switch off the last running fan and hides fan control while silent mode
+(parameter 45) is on.
+
 ## Chronothermostat
 
 Read `C|RecuperoGiornoChrono`:

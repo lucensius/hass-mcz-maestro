@@ -18,6 +18,7 @@ from .chrono import (
     encode_day,
     parse_chrono,
 )
+from .parameters import FRAME_TYPE_PARAMETERS, parse_parameters
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,6 +117,10 @@ class MaestroController:
     def write_parameter(self, param: int, value: int | float) -> None:
         """Write a stove parameter and consume the info frame it answers with."""
         self.request(f"C|WriteParametri|{param}|{value}", "01")
+
+    def read_parameters(self) -> list[int]:
+        """Read the parameter frame (equipment, limits, fans)."""
+        return parse_parameters(self.request("C|RecuperoParametri", FRAME_TYPE_PARAMETERS))
 
     def read_chrono(self) -> ChronoProgram:
         """Read the weekly program and the T1..T3 temperatures."""

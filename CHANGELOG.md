@@ -63,3 +63,8 @@
 - Every chrono write is logged (day, before -> after)
 - Manifest, HACS metadata and documentation point to this repository; English README with HACS installation, safety notice and legal information
 - CI: hassfest, HACS validation and unit tests
+
+## 0.5.0
+
+- Fan entities for the front fan and ducted fans the stove is fitted with (read from the parameter frame): automatic mode (default), manual levels, off only where allowed and never for the last running fan; refused while silent mode is on
+- Stove parameter frame parser with unit tests

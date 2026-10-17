@@ -125,6 +125,38 @@
       "chrono_calendar": {
         "name": "Chrono"
       }
+    },
+    "fan": {
+      "fan_state": {
+        "name": "Ventilateur",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Automatique"
+            }
+          }
+        }
+      },
+      "ductedfan1": {
+        "name": "Ventilateur canalisé 1",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Automatique"
+            }
+          }
+        }
+      },
+      "ductedfan2": {
+        "name": "Ventilateur canalisé 2",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Automatique"
+            }
+          }
+        }
+      }
     }
   }
 }

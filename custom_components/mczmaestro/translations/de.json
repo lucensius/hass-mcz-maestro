@@ -218,6 +218,38 @@
       "chrono_calendar": {
         "name": "Chrono"
       }
+    },
+    "fan": {
+      "fan_state": {
+        "name": "Gebläse",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Automatik"
+            }
+          }
+        }
+      },
+      "ductedfan1": {
+        "name": "Kanalgebläse 1",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Automatik"
+            }
+          }
+        }
+      },
+      "ductedfan2": {
+        "name": "Kanalgebläse 2",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Automatik"
+            }
+          }
+        }
+      }
     }
   }
 }

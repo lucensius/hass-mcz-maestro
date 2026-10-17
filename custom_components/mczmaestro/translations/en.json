@@ -218,6 +218,38 @@
       "chrono_calendar": {
         "name": "Chrono"
       }
+    },
+    "fan": {
+      "fan_state": {
+        "name": "Fan",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Automatic"
+            }
+          }
+        }
+      },
+      "ductedfan1": {
+        "name": "Ducted fan 1",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Automatic"
+            }
+          }
+        }
+      },
+      "ductedfan2": {
+        "name": "Ducted fan 2",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "auto": "Automatic"
+            }
+          }
+        }
+      }
     }
   }
 }
