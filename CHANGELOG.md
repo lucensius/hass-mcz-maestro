@@ -60,5 +60,6 @@
 - Relicensed under GPL-3.0 (the code base contains GPL-3.0 code from maestrogateway); Apache-2.0 notices of the original integration kept, see NOTICE
 - Entity names come from translations (English, German, French) and follow the device name chosen by the user; default device name "MCZ Maestro"
 - English calendar entry titles
+- Every chrono write is logged (day, before -> after)
 - Manifest, HACS metadata and documentation point to this repository; English README with HACS installation, safety notice and legal information
 - CI: hassfest, HACS validation and unit tests

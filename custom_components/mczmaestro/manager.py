@@ -23,7 +23,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import CHRONO, CONF_EXTERNAL_SENSOR, DOMAIN
 from .maestro import CONNECTION_ERRORS, MaestroController
-from .maestro.chrono import ChronoProgram
+from .maestro.chrono import DAYS, ChronoProgram, describe_day
 from .maestro.overlay import (
     OWNER_BOOST,
     OWNER_ONCE,
@@ -206,6 +206,12 @@ class ChronoManager:
                 days = self.overlays.apply(days)
                 for day in range(7):
                     if days[day] != fresh.days[day]:
+                        _LOGGER.info(
+                            "Chrono %s: %s -> %s",
+                            DAYS[day],
+                            describe_day(fresh.days[day]),
+                            describe_day(days[day]),
+                        )
                         await self.hass.async_add_executor_job(
                             self.controller.write_chrono_day, day, days[day]
                         )
