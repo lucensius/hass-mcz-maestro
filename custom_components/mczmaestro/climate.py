@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2022-2024 Matthieu Bourgain (Aohzan), originally Apache-2.0, modified by lucensius
+# Copyright (C) 2026 lucensius
 """Support for the MCZ climate."""
 
 import logging
@@ -14,7 +17,7 @@ from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONTROLLER, COORDINATOR, DOMAIN
+from .const import CONTROLLER, COORDINATOR, DOMAIN, MANAGER
 from .entity import MczEntity
 from .maestro import get_maestro_power_state
 
@@ -34,7 +37,7 @@ async def async_setup_entry(
     entities = []
 
     entities.append(
-        MczClimateEntity(controller, coordinator, "Stove", "stove"),
+        MczClimateEntity(controller, coordinator, "stove", data[MANAGER]),
     )
     if entities:
         async_add_entities(entities)
@@ -58,41 +61,54 @@ class MczClimateEntity(MczEntity, ClimateEntity):
         """Return the temperature we try to reach."""
         return float(self.coordinator.data["Temperature_Setpoint"])
 
+    _attr_name = None  # main feature of the device: shown with the device name only
+
+    def __init__(self, controller, coordinator, command_name, manager) -> None:
+        """Initialize the climate entity."""
+        super().__init__(controller, coordinator, command_name)
+        self._attr_translation_key = None
+        self.manager = manager
+
+    async def async_added_to_hass(self) -> None:
+        """Follow the chrono manager too."""
+        await super().async_added_to_hass()
+        self.async_on_remove(self.manager.async_add_listener(self.async_write_ha_state))
+
     @property
     def hvac_action(self) -> HVACAction:
         """Return the current running hvac operation if supported."""
         if not get_maestro_power_state(int(self.coordinator.data["Stove_State"])):
             return HVACAction.OFF
-        if self.coordinator.data["Active_Mode"] == 1:
+        if int(self.coordinator.data["Active_Mode"]) == 1:
             return HVACAction.HEATING
         return HVACAction.IDLE
 
     @property
     def hvac_mode(self) -> HVACMode:
-        """Return hvac operation ie. heat, cool mode."""
-        if get_maestro_power_state(int(self.coordinator.data["Stove_State"])) == 0:
-            return HVACMode.OFF
-        if self.coordinator.data["Control_Mode"] == 1:
+        """Heat = start button period running, auto = chrono program, off otherwise."""
+        if self.manager.boost_active:
+            return HVACMode.HEAT
+        if int(self.coordinator.data["Chronostat"]) == 1:
             return HVACMode.AUTO
-        return HVACMode.HEAT
+        if get_maestro_power_state(int(self.coordinator.data["Stove_State"])):
+            return HVACMode.HEAT
+        return HVACMode.OFF
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
-        self.controller.send(f"C|WriteParametri|42|{float(kwargs[ATTR_TEMPERATURE])*2}")
+        await self.async_write_parameter(42, int(float(kwargs[ATTR_TEMPERATURE]) * 2))
         await self.coordinator.async_request_refresh()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
-        """Set new target hvac mode."""
-        if self.coordinator.data["Stove_State"] == 0:
-            self.controller.send("C|WriteParametri|34|1")
-        if hvac_mode == HVACMode.AUTO:
-            self.controller.send("C|WriteParametri|40|1")
-        elif hvac_mode == HVACMode.HEAT:
-            self.controller.send("C|WriteParametri|40|0")
+        """Map the modes onto the chrono, which is never switched off here."""
+        if hvac_mode == HVACMode.HEAT:
+            await self.manager.async_start_boost()
+        elif hvac_mode == HVACMode.AUTO:
+            if self.manager.boost_active:
+                await self.manager.async_stop_boost()
+            await self.async_write_parameter(1111, 1)
         elif hvac_mode == HVACMode.OFF:
-            # turn off eco and dynamic mode and shutdown
-            self.controller.send("C|WriteParametri|41|0")
-            self.controller.send("C|WriteParametri|1111|0")
-            self.controller.send("C|WriteParametri|34|40")
-
+            await self.manager.async_stop_boost()
+            await self.manager.async_set_setting("smart_enabled", False)
+            await self.async_write_parameter(34, 40)
         await self.coordinator.async_request_refresh()

@@ -1,0 +1,101 @@
+set_chrono_day:
+  fields:
+    day:
+      required: true
+      example: ["monday", "tuesday"]
+      selector:
+        select:
+          multiple: true
+          translation_key: chrono_day
+          options:
+            - monday
+            - tuesday
+            - wednesday
+            - thursday
+            - friday
+            - saturday
+            - sunday
+            - weekdays
+            - weekend
+            - all
+    schedule:
+      required: false
+      example: '[{"start": "06:00", "end": "08:30", "temperature": "T2"}, {"start": "17:00", "end": "22:00", "temperature": "T3"}]'
+      selector:
+        object:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: mczmaestro
+
+copy_chrono_day:
+  fields:
+    source:
+      required: true
+      example: monday
+      selector:
+        select:
+          translation_key: chrono_day
+          options:
+            - monday
+            - tuesday
+            - wednesday
+            - thursday
+            - friday
+            - saturday
+            - sunday
+    target:
+      required: true
+      example: ["tuesday", "wednesday", "thursday", "friday"]
+      selector:
+        select:
+          multiple: true
+          translation_key: chrono_day
+          options:
+            - monday
+            - tuesday
+            - wednesday
+            - thursday
+            - friday
+            - saturday
+            - sunday
+            - weekdays
+            - weekend
+            - all
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: mczmaestro
+
+start_heating:
+  fields:
+    hours:
+      required: false
+      example: 2
+      selector:
+        number:
+          min: 0.5
+          max: 24
+          step: 0.5
+          unit_of_measurement: h
+    temperature:
+      required: false
+      example: T3
+      selector:
+        select:
+          options: [T1, T2, T3]
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: mczmaestro
+
+stop_heating:
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: mczmaestro

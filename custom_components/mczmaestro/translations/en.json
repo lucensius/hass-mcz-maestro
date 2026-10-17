@@ -1,23 +1,223 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Initial MCZ Maestro configuration",
-                "description": "Set connexion settings, Home-Assistant must have direct access to the stove.",
-                "data": {
-                    "host": "Host",
-                    "port": "Port",
-                    "scan_interval": "Seconds between updates"
-                }
-            }
-        },
-        "error": {
-            "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
-            "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
-            "unknown": "[%key:common::config_flow::error::unknown%]"
-        },
-        "abort": {
-            "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+  "config": {
+    "step": {
+      "user": {
+        "title": "Initial MCZ Maestro configuration",
+        "description": "Set connexion settings, Home-Assistant must have direct access to the stove.",
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]",
+          "port": "[%key:common::config_flow::data::port%]",
+          "scan_interval": "Seconds between updates"
         }
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
     }
+  },
+  "services": {
+    "set_chrono_day": {
+      "name": "Set chrono day",
+      "description": "Set the weekly program of one or more days. Times must be on 30 minute boundaries; slots not covered are off. An empty schedule switches the day off.",
+      "fields": {
+        "day": {
+          "name": "Day",
+          "description": "Days to program."
+        },
+        "schedule": {
+          "name": "Schedule",
+          "description": "List of ranges with start, end (HH:MM) and temperature (T1, T2 or T3)."
+        },
+        "config_entry_id": {
+          "name": "Stove",
+          "description": "Only needed with more than one stove."
+        }
+      }
+    },
+    "copy_chrono_day": {
+      "name": "Copy chrono day",
+      "description": "Copy the program of one day to other days.",
+      "fields": {
+        "source": {
+          "name": "Source day",
+          "description": "Day to copy from."
+        },
+        "target": {
+          "name": "Target days",
+          "description": "Days to copy to."
+        },
+        "config_entry_id": {
+          "name": "Stove",
+          "description": "Only needed with more than one stove."
+        }
+      }
+    },
+    "start_heating": {
+      "name": "Start heating",
+      "description": "Heat via the chrono from now for some hours. Uses the 'Heizdauer' and 'Heizstufe' entities when not given.",
+      "fields": {
+        "hours": {
+          "name": "Hours",
+          "description": "Duration in hours."
+        },
+        "temperature": {
+          "name": "Temperature",
+          "description": "Chrono level T1, T2 or T3."
+        },
+        "config_entry_id": {
+          "name": "Stove",
+          "description": "Only needed with more than one stove."
+        }
+      }
+    },
+    "stop_heating": {
+      "name": "Stop heating",
+      "description": "End the heating period started with start_heating or the start button.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Stove",
+          "description": "Only needed with more than one stove."
+        }
+      }
+    }
+  },
+  "selector": {
+    "chrono_day": {
+      "options": {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday",
+        "weekdays": "Weekdays (Mon-Fri)",
+        "weekend": "Weekend (Sat-Sun)",
+        "all": "All days"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "MCZ Maestro smart mode",
+        "description": "External thermometer the smart mode compares with the target temperature.",
+        "data": {
+          "external_sensor": "External thermometer"
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "chronostat_t1": {
+        "name": "Temperature T1"
+      },
+      "chronostat_t2": {
+        "name": "Temperature T2"
+      },
+      "chronostat_t3": {
+        "name": "Temperature T3"
+      },
+      "setting_boost_hours": {
+        "name": "Heating duration"
+      },
+      "setting_smart_target": {
+        "name": "Smart target temperature"
+      },
+      "setting_smart_hysteresis": {
+        "name": "Smart hysteresis"
+      },
+      "setting_smart_min_runtime": {
+        "name": "Smart minimum runtime"
+      }
+    },
+    "sensor": {
+      "state": {
+        "name": "State"
+      },
+      "ambient_temperature": {
+        "name": "Room temperature"
+      },
+      "chrono_sunday": {
+        "name": "Chrono Sunday"
+      },
+      "chrono_monday": {
+        "name": "Chrono Monday"
+      },
+      "chrono_tuesday": {
+        "name": "Chrono Tuesday"
+      },
+      "chrono_wednesday": {
+        "name": "Chrono Wednesday"
+      },
+      "chrono_thursday": {
+        "name": "Chrono Thursday"
+      },
+      "chrono_friday": {
+        "name": "Chrono Friday"
+      },
+      "chrono_saturday": {
+        "name": "Chrono Saturday"
+      },
+      "boost_until": {
+        "name": "Heating until"
+      },
+      "smart_status": {
+        "name": "Smart status",
+        "state": {
+          "off": "Off",
+          "no_sensor": "No thermometer",
+          "idle": "Waiting",
+          "heating": "Heating"
+        }
+      }
+    },
+    "switch": {
+      "eco_mode": {
+        "name": "Eco mode"
+      },
+      "silent_mode": {
+        "name": "Silent mode"
+      },
+      "active_mode": {
+        "name": "Active mode"
+      },
+      "control_mode": {
+        "name": "Automatic mode"
+      },
+      "chronostat": {
+        "name": "Chrono mode"
+      },
+      "smart_mode": {
+        "name": "Smart mode"
+      }
+    },
+    "button": {
+      "boost_start": {
+        "name": "Start stove"
+      },
+      "boost_stop": {
+        "name": "Stop stove"
+      },
+      "clock_sync": {
+        "name": "Sync clock"
+      }
+    },
+    "select": {
+      "heating_level": {
+        "name": "Heating level"
+      }
+    },
+    "calendar": {
+      "chrono_calendar": {
+        "name": "Chrono"
+      }
+    }
+  }
 }

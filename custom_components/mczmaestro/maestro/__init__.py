@@ -1,22 +1,61 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2019-2021 maestrogateway contributors (Chibald), GPL-3.0
+# Copyright (C) 2022-2024 Matthieu Bourgain (Aohzan), originally Apache-2.0, modified by lucensius
+# Copyright (C) 2026 lucensius
 """MCZ Maestro."""
 import websocket
 
+from datetime import datetime
 import logging
+import threading
+
+from .chrono import (
+    FRAME_TYPE_CHRONO,
+    TEMPERATURE_MAX,
+    TEMPERATURE_MIN,
+    TEMPERATURE_PARAMS,
+    ChronoProgram,
+    encode_day,
+    parse_chrono,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
+
+CONNECTION_ERRORS = (OSError, websocket.WebSocketException)
 
 
 class MaestroController:
     """Control the MCZ."""
 
-    def __init__(self, host: str, port: int, timeout: int = 60) -> None:
+    def __init__(self, host: str, port: int, timeout: int = 10) -> None:
         """Init the MCZ."""
         self._host = host
         self._port = str(port)
+        self._timeout = timeout
+        self._server = None
+        self._lock = threading.RLock()
+        try:
+            self._connect()
+        except CONNECTION_ERRORS as err:
+            _LOGGER.warning("Can't connect to MCZ %s:%s: %s", host, self._port, err)
+
+    def _connect(self) -> None:
+        """Open a new websocket connection, dropping any stale one."""
+        self._close()
         self._server = websocket.create_connection(
-            f"ws://{self._host}:{self._port}", timeout=timeout
+            f"ws://{self._host}:{self._port}", timeout=self._timeout
         )
+        _LOGGER.info("Connected to MCZ %s:%s", self._host, self._port)
+
+    def _close(self) -> None:
+        """Close the websocket connection."""
+        if self._server is not None:
+            try:
+                self._server.close()
+            except CONNECTION_ERRORS:
+                pass
+            self._server = None
 
     @property
     def host(self) -> str:
@@ -31,16 +70,72 @@ class MaestroController:
     @property
     def connected(self) -> bool:
         """Return true if connected to the ws server."""
-        return self._server.connected
+        return self._server is not None and self._server.connected
 
     def send(self, message) -> None:
-        """Send a message."""
-        self._server.send(message)
+        """Send a message, reconnecting first if the connection was lost."""
+        with self._lock:
+            if not self.connected:
+                self._connect()
+            try:
+                self._server.send(message)
+            except CONNECTION_ERRORS:
+                self._close()
+                raise
+
+    def receive_raw(self) -> str:
+        """Get the next raw frame."""
+        with self._lock:
+            if not self.connected:
+                raise websocket.WebSocketConnectionClosedException("Not connected")
+            try:
+                return self._server.recv()
+            except CONNECTION_ERRORS:
+                self._close()
+                raise
 
     def receive(self) -> dict:
         """Get data."""
-        data = self._server.recv()
-        return process_infostring(data)
+        return process_infostring(self.receive_raw())
+
+    def request(self, message: str, frame_type: str, attempts: int = 3) -> str:
+        """Send a command and return the first reply of the given frame type."""
+        with self._lock:
+            self.send(message)
+            for _ in range(attempts):
+                data = self.receive_raw()
+                if data.split("|", 1)[0] == frame_type:
+                    return data
+                _LOGGER.debug("Ignoring frame while waiting for %s: %s", frame_type, data)
+        raise websocket.WebSocketException(f"No {frame_type} reply to {message}")
+
+    def request_info(self) -> dict:
+        """Request and return the current stove information."""
+        return process_infostring(self.request("C|RecuperoInfo", "01"))
+
+    def write_parameter(self, param: int, value: int | float) -> None:
+        """Write a stove parameter and consume the info frame it answers with."""
+        self.request(f"C|WriteParametri|{param}|{value}", "01")
+
+    def read_chrono(self) -> ChronoProgram:
+        """Read the weekly program and the T1..T3 temperatures."""
+        return parse_chrono(self.request("C|RecuperoGiornoChrono", FRAME_TYPE_CHRONO))
+
+    def write_chrono_day(self, day: int, slots: list[int]) -> None:
+        """Write the program of one day (0 = Sunday)."""
+        if not 0 <= day <= 6:
+            raise ValueError(f"Invalid chrono day: {day}")
+        self.request(f"C|ScriviGiornoChrono|{day}|{encode_day(slots)}", "01")
+
+    def set_clock(self, value: datetime) -> None:
+        """Set the stove clock (the chrono runs on it)."""
+        self.request(f"C|SalvaDataOra|{value.strftime('%d%m%Y%H%M')}", "AA")
+
+    def write_chrono_temperature(self, index: int, value: int) -> None:
+        """Write temperature T1, T2 or T3 (index 0..2) in degrees Celsius."""
+        if not TEMPERATURE_MIN <= value <= TEMPERATURE_MAX:
+            raise ValueError(f"Chrono temperature out of range: {value}")
+        self.request(f"C|WriteParametri|{TEMPERATURE_PARAMS[index]}|{int(value)}", "01")
 
 
 class MaestroStoveState:

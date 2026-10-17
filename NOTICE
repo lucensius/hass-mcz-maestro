@@ -1,0 +1,30 @@
+MCZ Maestro local integration for Home Assistant
+Copyright (C) 2026 lucensius
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License version 3 as published by the Free
+Software Foundation. It is distributed WITHOUT ANY WARRANTY; see LICENSE.
+
+This project contains code from:
+
+- hass-mcz-maestro by Matthieu Bourgain (Aohzan)
+  https://github.com/Aohzan/hass-mcz-maestro
+  Copyright (C) 2022-2024 Matthieu Bourgain
+  Licensed under the Apache License 2.0 (LICENSES/Apache-2.0.txt).
+  The files taken from it were modified; see the file headers and CHANGELOG.md.
+
+- maestrogateway by Chibald and contributors
+  https://github.com/Chibald/maestrogateway
+  Copyright (C) 2019-2021 maestrogateway contributors
+  Licensed under the GNU General Public License v3.0 (LICENSES/GPL-3.0.txt).
+  Parts of the stove state and information frame tables and the frame parser
+  in custom_components/mczmaestro/maestro/__init__.py derive from it.
+
+Protocol knowledge was also cross-checked against the documentation of
+mcz-maestro-esphome by lexyan (https://github.com/lexyan/mcz-maestro-esphome).
+No code was taken from it.
+
+Trademarks: "MCZ" and "Maestro" are trademarks of MCZ Group S.p.A. This project
+is an independent, unofficial work. It is not affiliated with, endorsed,
+sponsored or supported by MCZ Group S.p.A. The names are used only to describe
+which products the software works with.

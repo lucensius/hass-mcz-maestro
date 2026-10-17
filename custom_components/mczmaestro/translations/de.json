@@ -1,0 +1,223 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "MCZ Maestro einrichten",
+        "description": "Verbindung zum Ofen. Home Assistant muss den Ofen direkt erreichen (WLAN des Ofens).",
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]",
+          "port": "[%key:common::config_flow::data::port%]",
+          "scan_interval": "Sekunden zwischen den Abfragen"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    }
+  },
+  "services": {
+    "set_chrono_day": {
+      "name": "Chrono-Tag setzen",
+      "description": "Setzt das Wochenprogramm eines oder mehrerer Tage. Zeiten in halben Stunden; nicht angegebene Zeiten sind aus, ein leerer Plan schaltet den Tag aus.",
+      "fields": {
+        "day": {
+          "name": "Tag",
+          "description": "Zu programmierende Tage."
+        },
+        "schedule": {
+          "name": "Plan",
+          "description": "Liste mit start, end (HH:MM) und temperature (T1, T2 oder T3)."
+        },
+        "config_entry_id": {
+          "name": "Ofen",
+          "description": "Nur bei mehreren Öfen nötig."
+        }
+      }
+    },
+    "copy_chrono_day": {
+      "name": "Chrono-Tag kopieren",
+      "description": "Kopiert das Programm eines Tages auf andere Tage.",
+      "fields": {
+        "source": {
+          "name": "Quelltag",
+          "description": "Tag, von dem kopiert wird."
+        },
+        "target": {
+          "name": "Zieltage",
+          "description": "Tage, auf die kopiert wird."
+        },
+        "config_entry_id": {
+          "name": "Ofen",
+          "description": "Nur bei mehreren Öfen nötig."
+        }
+      }
+    },
+    "start_heating": {
+      "name": "Heizen starten",
+      "description": "Heizt ab jetzt über das Chrono. Ohne Angaben gelten die Entitäten Heizdauer und Heizstufe.",
+      "fields": {
+        "hours": {
+          "name": "Stunden",
+          "description": "Dauer in Stunden."
+        },
+        "temperature": {
+          "name": "Temperatur",
+          "description": "Chrono-Stufe T1, T2 oder T3."
+        },
+        "config_entry_id": {
+          "name": "Ofen",
+          "description": "Nur bei mehreren Öfen nötig."
+        }
+      }
+    },
+    "stop_heating": {
+      "name": "Heizen stoppen",
+      "description": "Beendet die mit Heizen starten oder dem Start-Knopf begonnene Heizphase.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ofen",
+          "description": "Nur bei mehreren Öfen nötig."
+        }
+      }
+    }
+  },
+  "selector": {
+    "chrono_day": {
+      "options": {
+        "sunday": "Sonntag",
+        "monday": "Montag",
+        "tuesday": "Dienstag",
+        "wednesday": "Mittwoch",
+        "thursday": "Donnerstag",
+        "friday": "Freitag",
+        "saturday": "Samstag",
+        "weekdays": "Werktage (Mo–Fr)",
+        "weekend": "Wochenende (Sa–So)",
+        "all": "Alle Tage"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "MCZ Maestro Smart-Modus",
+        "description": "Externes Thermometer, mit dem der Smart-Modus die Zieltemperatur vergleicht.",
+        "data": {
+          "external_sensor": "Externes Thermometer"
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "chronostat_t1": {
+        "name": "Temperatur T1"
+      },
+      "chronostat_t2": {
+        "name": "Temperatur T2"
+      },
+      "chronostat_t3": {
+        "name": "Temperatur T3"
+      },
+      "setting_boost_hours": {
+        "name": "Heizdauer"
+      },
+      "setting_smart_target": {
+        "name": "Smart Zieltemperatur"
+      },
+      "setting_smart_hysteresis": {
+        "name": "Smart Hysterese"
+      },
+      "setting_smart_min_runtime": {
+        "name": "Smart Mindestlaufzeit"
+      }
+    },
+    "sensor": {
+      "state": {
+        "name": "Zustand"
+      },
+      "ambient_temperature": {
+        "name": "Raumtemperatur"
+      },
+      "chrono_sunday": {
+        "name": "Chrono Sonntag"
+      },
+      "chrono_monday": {
+        "name": "Chrono Montag"
+      },
+      "chrono_tuesday": {
+        "name": "Chrono Dienstag"
+      },
+      "chrono_wednesday": {
+        "name": "Chrono Mittwoch"
+      },
+      "chrono_thursday": {
+        "name": "Chrono Donnerstag"
+      },
+      "chrono_friday": {
+        "name": "Chrono Freitag"
+      },
+      "chrono_saturday": {
+        "name": "Chrono Samstag"
+      },
+      "boost_until": {
+        "name": "Heizen bis"
+      },
+      "smart_status": {
+        "name": "Smart Status",
+        "state": {
+          "off": "Aus",
+          "no_sensor": "Kein Thermometer",
+          "idle": "Wartet",
+          "heating": "Heizt"
+        }
+      }
+    },
+    "switch": {
+      "eco_mode": {
+        "name": "Eco-Modus"
+      },
+      "silent_mode": {
+        "name": "Silent-Modus"
+      },
+      "active_mode": {
+        "name": "Aktiv-Modus"
+      },
+      "control_mode": {
+        "name": "Automatik-Modus"
+      },
+      "chronostat": {
+        "name": "Chrono-Modus"
+      },
+      "smart_mode": {
+        "name": "Smart-Modus"
+      }
+    },
+    "button": {
+      "boost_start": {
+        "name": "Ofen starten"
+      },
+      "boost_stop": {
+        "name": "Ofen stoppen"
+      },
+      "clock_sync": {
+        "name": "Uhrzeit synchronisieren"
+      }
+    },
+    "select": {
+      "heating_level": {
+        "name": "Heizstufe"
+      }
+    },
+    "calendar": {
+      "chrono_calendar": {
+        "name": "Chrono"
+      }
+    }
+  }
+}

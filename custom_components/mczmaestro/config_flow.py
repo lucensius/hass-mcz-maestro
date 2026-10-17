@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2022-2024 Matthieu Bourgain (Aohzan), originally Apache-2.0, modified by lucensius
+# Copyright (C) 2026 lucensius
 """Config flow to configure the MCZ Maestro integration."""
 
 from typing import Any
@@ -7,8 +10,10 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL
+from homeassistant.core import callback
+from homeassistant.helpers import selector
 
-from .const import DOMAIN
+from .const import CONF_EXTERNAL_SENSOR, DOMAIN
 from .maestro import MaestroController
 
 BASE_SCHEMA = vol.Schema(
@@ -26,6 +31,12 @@ class MczConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        """Options: external thermometer for the smart mode."""
+        return MczOptionsFlow()
 
     def __init__(self) -> None:
         """Initialize class variables."""
@@ -59,3 +70,27 @@ class MczConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             title=f"MCZ Maestro {controller.host}:{controller.port}",
             data=user_input,
         )
+
+
+class MczOptionsFlow(config_entries.OptionsFlow):
+    """Choose the external thermometer used by the smart mode."""
+
+    async def async_step_init(self, user_input=None) -> ConfigFlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+
+        current = self.config_entry.options.get(CONF_EXTERNAL_SENSOR)
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_EXTERNAL_SENSOR,
+                    description={"suggested_value": current} if current else None,
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain="sensor", device_class="temperature"
+                    )
+                ),
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema)

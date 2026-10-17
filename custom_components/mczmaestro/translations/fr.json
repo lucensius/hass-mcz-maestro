@@ -1,23 +1,130 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Configuration MCZ Maestro",
-                "description": "Définir les paramètres de connexion, Home-Assistant doit avoir un accès direct au poêle.",
-                "data": {
-                    "host": "IP",
-                    "port": "Port",
-                    "scan_interval": "Seconds entre chaque mise à jour de l'état"
-                }
-            }
-        },
-        "error": {
-            "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
-            "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
-            "unknown": "[%key:common::config_flow::error::unknown%]"
-        },
-        "abort": {
-            "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configuration MCZ Maestro",
+        "description": "Définir les paramètres de connexion, Home-Assistant doit avoir un accès direct au poêle.",
+        "data": {
+          "host": "IP",
+          "port": "Port",
+          "scan_interval": "Seconds entre chaque mise à jour de l'état"
         }
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
     }
+  },
+  "entity": {
+    "number": {
+      "chronostat_t1": {
+        "name": "Température T1"
+      },
+      "chronostat_t2": {
+        "name": "Température T2"
+      },
+      "chronostat_t3": {
+        "name": "Température T3"
+      },
+      "setting_boost_hours": {
+        "name": "Durée de chauffe"
+      },
+      "setting_smart_target": {
+        "name": "Température cible smart"
+      },
+      "setting_smart_hysteresis": {
+        "name": "Hystérésis smart"
+      },
+      "setting_smart_min_runtime": {
+        "name": "Durée minimale smart"
+      }
+    },
+    "sensor": {
+      "state": {
+        "name": "État"
+      },
+      "ambient_temperature": {
+        "name": "Température ambiante"
+      },
+      "chrono_sunday": {
+        "name": "Chrono dimanche"
+      },
+      "chrono_monday": {
+        "name": "Chrono lundi"
+      },
+      "chrono_tuesday": {
+        "name": "Chrono mardi"
+      },
+      "chrono_wednesday": {
+        "name": "Chrono mercredi"
+      },
+      "chrono_thursday": {
+        "name": "Chrono jeudi"
+      },
+      "chrono_friday": {
+        "name": "Chrono vendredi"
+      },
+      "chrono_saturday": {
+        "name": "Chrono samedi"
+      },
+      "boost_until": {
+        "name": "Chauffe jusqu'à"
+      },
+      "smart_status": {
+        "name": "Statut smart",
+        "state": {
+          "off": "Arrêt",
+          "no_sensor": "Pas de thermomètre",
+          "idle": "En attente",
+          "heating": "Chauffe"
+        }
+      }
+    },
+    "switch": {
+      "eco_mode": {
+        "name": "Mode éco"
+      },
+      "silent_mode": {
+        "name": "Mode silencieux"
+      },
+      "active_mode": {
+        "name": "Mode actif"
+      },
+      "control_mode": {
+        "name": "Mode dynamique"
+      },
+      "chronostat": {
+        "name": "Mode chrono"
+      },
+      "smart_mode": {
+        "name": "Mode smart"
+      }
+    },
+    "button": {
+      "boost_start": {
+        "name": "Démarrer le poêle"
+      },
+      "boost_stop": {
+        "name": "Arrêter le poêle"
+      },
+      "clock_sync": {
+        "name": "Synchroniser l'heure"
+      }
+    },
+    "select": {
+      "heating_level": {
+        "name": "Niveau de chauffe"
+      }
+    },
+    "calendar": {
+      "chrono_calendar": {
+        "name": "Chrono"
+      }
+    }
+  }
 }

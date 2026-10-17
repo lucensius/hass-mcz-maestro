@@ -1,12 +1,12 @@
 {
   "domain": "mczmaestro",
-  "name": "MCZ Maestro",
-  "codeowners": ["@Aohzan"],
+  "name": "MCZ Maestro Local",
+  "codeowners": ["@lucensius"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/Aohzan/hass-mcz-maestro",
+  "documentation": "https://github.com/lucensius/hass-mcz-maestro",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/Aohzan/hass-mcz-maestro/issues",
-  "requirements": ["websocket-client==0.57.0"],
-  "version": "0.1.7"
+  "issue_tracker": "https://github.com/lucensius/hass-mcz-maestro/issues",
+  "requirements": ["websocket-client>=1.6.0"],
+  "version": "0.4.0"
 }
