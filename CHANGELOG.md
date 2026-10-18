@@ -74,3 +74,9 @@
 - Smart strategy "Within chrono only" (new default): smart mode acts only during heating periods (weekly program, start button, one-off entries) and switches the rest of the period off once the target is reached; resumes when it gets cold again during the period
 - Previous behaviour available as strategy "Additional heating"
 - Smart status shows "Outside schedule" and "Target reached"
+
+## 0.6.1
+
+- Fix: the stove switched off at the full or half hour while heating from a temporary entry. Expired temporary entries were removed right when their slot ended; the stove, whose clock may run slightly behind, then saw its current slot switched off. Past entries are now removed in a daily cleanup at 02:00 for the previous days only; stop, smart and calendar deletes only remove the current slot and later ones
+- Fix: temporary entries could stay in the chrono table after a restart or a failed write. Changes are now saved before writing, slots to restore are kept until the write succeeded, and a slot is only restored while it still holds the value the integration set
+- Stove clock is synced at a drift of more than 1 minute (was 2)

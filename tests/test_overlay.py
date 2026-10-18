@@ -160,3 +160,48 @@ def test_smart_chrono_scenario():
         days_after[d][s] = orig
     assert days_after[6][33] == 1  # 16:30-17:00 heats again
     assert table.expire(SAT.replace(hour=17)) == {(6, 32): 1}  # past slot restored later
+
+
+def test_cleanup_cutoff():
+    assert overlay.cleanup_cutoff(SAT.replace(hour=1, minute=59)) == datetime(2026, 10, 16)
+    assert overlay.cleanup_cutoff(SAT.replace(hour=2)) == SAT
+    assert overlay.cleanup_cutoff(SAT.replace(hour=16)) == SAT
+
+
+def test_no_restore_during_the_day():
+    """The bug: removing the slot that just ended switched the stove off at 16:00."""
+    days = empty_week()
+    days[6][35:38] = [1, 1, 1]  # base 17:30-19:00
+    table = overlay.OverlayTable()
+    started = SAT.replace(hour=15, minute=38)
+    table.add("boost", started, SAT.replace(hour=17, minute=30), 1, days, started)
+    at_16 = SAT.replace(hour=16, minute=0, second=1)
+    assert table.expire(overlay.cleanup_cutoff(at_16)) == {}  # nothing touched today
+    assert table.apply(days)[6][31:38] == [1] * 7
+    # next day 02:00: yesterday's slots are restored
+    restore = table.expire(overlay.cleanup_cutoff(datetime(2026, 10, 18, 2, 0)))
+    assert set(restore) == {(6, s) for s in range(31, 35)}
+    assert table.slots == {}
+
+
+def test_stop_keeps_past_slots_until_cleanup():
+    days = empty_week()
+    table = overlay.OverlayTable()
+    start = SAT.replace(hour=15)
+    table.add("boost", start, SAT.replace(hour=17), 3, days, start)
+    stop = SAT.replace(hour=16, minute=10)
+    restore = table.remove("boost", start=stop)
+    assert set(restore) == {(6, 32), (6, 33)}  # current slot 16:00 and later
+    assert not table.has_owner("boost", stop)  # inactive from now on
+    assert table.has_owner("boost")  # past slots still remembered for the cleanup
+
+
+def test_pending_restores():
+    days = empty_week()
+    days[6][30] = 3  # we had set T3, original was off
+    days[6][31] = 2  # we had set T3, but someone changed it to T2 in the app
+    pending = {"6:30": [0, 3], "6:31": [0, 3]}
+    overlay.apply_pending(days, pending)
+    assert days[6][30] == 0  # restored
+    assert days[6][31] == 2  # foreign change kept
+    assert pending == {"6:30": [0, 3]}

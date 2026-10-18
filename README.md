@@ -170,8 +170,9 @@ half hour). The stove starts through its chrono. **Heating until** shows the end
 
 - Pressing again restarts the duration from now.
 - **Stop stove** removes the entries again; times of the weekly program stay.
-- When the heating period is over, its entries are removed automatically –
-  otherwise the stove would start again at the same time a week later.
+- After the heating period its entries are removed automatically at the
+  **daily cleanup (02:00 the next day)** – otherwise the stove would start again
+  at the same time a week later.
 - If the weekly program has a higher level at the same time, that level is kept.
 
 ### Smart mode with an external thermometer
@@ -461,13 +462,19 @@ the same table. For every slot changed that way the integration remembers the
 one-off, skip). This allows it to
 
 - remove entries selectively (stop, target reached, calendar delete),
-- restore expired entries automatically so they do not repeat a week later,
+- restore expired entries automatically so they do not repeat a week later –
+  in a **daily cleanup at 02:00** for the previous days, never during the day:
+  rewriting a slot that has just ended can make the stove switch off, because
+  its clock may run a few seconds behind,
 - show the weekly program and one-off entries separately in the calendar,
 - apply changes to the weekly program without losing running heating periods.
 
-This is stored in `.storage/mczmaestro.<entry_id>` and survives restarts.
-Before every write the table is read fresh from the stove and only days that
-actually change are written.
+This is stored in `.storage/mczmaestro.<entry_id>` **before** anything is written
+to the stove, and slots still to be restored are kept until the write succeeded –
+a restart or a lost connection cannot leave temporary entries behind. A slot is
+only restored while it still holds the value the integration set; changes made in
+the MCZ app in the meantime are kept. Before every write the table is read fresh
+from the stove and only days that actually change are written.
 
 **Connection.** Every reply of the stove is matched to its frame type (`01`
 info, `04` chrono, `AA` clock …). Writes run in an executor thread and never
@@ -494,8 +501,9 @@ block Home Assistant. A lost connection is re-established with the next command.
 - **One week ahead:** one-off entries are only possible for the next 7 days –
   the table repeats weekly.
 - **Changes in the MCZ app:** if you change a slot in the app while a temporary
-  entry occupies it, the integration restores the previous value once the
-  temporary entry ends.
+  entry occupies it, your change is kept when the temporary entry is cleaned up.
+- **Past entries until 02:00:** temporary entries of the current day stay in the
+  chrono table (and in the day sensors) until the daily cleanup at 02:00.
 - **Stove memory:** every chrono change is stored in the stove. The integration
   writes only real changes (smart mode at most about every 30 minutes).
 - **Regulation:** within a heating period the stove regulates by itself, based

@@ -33,7 +33,9 @@ from .maestro.overlay import (
     SLOT,
     OverlayTable,
     active_period,
+    apply_pending,
     ceil_slot,
+    cleanup_cutoff,
     floor_slot,
 )
 
@@ -55,7 +57,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 SMART_LOOKAHEAD = timedelta(minutes=60)
 SMART_EXTEND_BEFORE = timedelta(minutes=30)
 CHRONO_FIX_INTERVAL = timedelta(minutes=2)
-CLOCK_MAX_DRIFT = timedelta(minutes=2)
+CLOCK_MAX_DRIFT = timedelta(minutes=1)
 CLOCK_SYNC_INTERVAL = timedelta(hours=1)
 
 SMART_OFF = "off"
@@ -95,6 +97,9 @@ class ChronoManager:
         self.overlays = OverlayTable()
         self.boost_until: datetime | None = None
         self.smart_started: datetime | None = None
+        # Slots to restore that were not written to the stove yet:
+        # "day:slot" -> [original level, level the integration had set]
+        self.pending: dict[str, list[int]] = {}
         self.external_sensor: str | None = entry.options.get(CONF_EXTERNAL_SENSOR)
         self._lock = asyncio.Lock()
         self._listeners: list[Callable[[], None]] = []
@@ -114,6 +119,7 @@ class ChronoManager:
                 self.boost_until = datetime.fromisoformat(boost)
             if started := stored.get("smart_started"):
                 self.smart_started = datetime.fromisoformat(started)
+            self.pending = stored.get("pending", {})
         self._unsubs.append(self.coordinator.async_add_listener(self._schedule_update))
         if self.external_sensor:
             self._unsubs.append(
@@ -137,6 +143,7 @@ class ChronoManager:
             "overlays": self.overlays.as_dict(),
             "boost_until": self.boost_until.isoformat() if self.boost_until else None,
             "smart_started": self.smart_started.isoformat() if self.smart_started else None,
+            "pending": self.pending,
         }
 
     def _save(self) -> None:
@@ -194,7 +201,7 @@ class ChronoManager:
             if self.overlays.owner_at(OWNER_SMART_OFF, now):
                 return SMART_TARGET_REACHED
             return SMART_HEATING
-        return SMART_HEATING if self.overlays.has_owner(OWNER_SMART) else SMART_IDLE
+        return SMART_HEATING if self.overlays.has_owner(OWNER_SMART, now_local()) else SMART_IDLE
 
     def _smart_period(self, now: datetime) -> tuple[datetime, datetime] | None:
         """Heating period (program, start button, one-off) containing now, ignoring smart cut-offs."""
@@ -219,14 +226,25 @@ class ChronoManager:
     async def _async_run(
         self, mutate: Callable[[ChronoProgram], dict[tuple[int, int], int]]
     ) -> None:
-        """Read the table, let mutate change the overlays, write what changed."""
+        """Read the table, let mutate change the overlays, write what changed.
+
+        Changes are saved before anything is written to the stove, and slots to
+        restore are kept as pending until the write succeeded. A restart or a
+        lost connection therefore never leaves temporary entries behind.
+        """
         async with self._lock:
             try:
                 fresh = await self.hass.async_add_executor_job(self.controller.read_chrono)
-                days = [list(day) for day in fresh.days]
-                for (day, slot), level in mutate(fresh).items():
-                    days[day][slot] = level
-                days = self.overlays.apply(days)
+                work = [list(day) for day in fresh.days]
+                apply_pending(work, self.pending)
+                before = self.overlays.apply(work)
+                restore = mutate(ChronoProgram(days=work, temperatures=fresh.temperatures))
+                for (day, slot), orig in restore.items():
+                    work[day][slot] = orig
+                    self.pending[f"{day}:{slot}"] = [orig, before[day][slot]]
+                await self._store.async_save(self._data_to_store())
+
+                days = self.overlays.apply(work)
                 for day in range(7):
                     if days[day] != fresh.days[day]:
                         _LOGGER.info(
@@ -238,6 +256,7 @@ class ChronoManager:
                         await self.hass.async_add_executor_job(
                             self.controller.write_chrono_day, day, days[day]
                         )
+                self.pending.clear()
             except (*CONNECTION_ERRORS, ValueError) as err:
                 raise HomeAssistantError(f"Could not write chrono program: {err}") from err
             finally:
@@ -265,7 +284,7 @@ class ChronoManager:
         end = ceil_slot(now + timedelta(hours=hours))
 
         def mutate(fresh: ChronoProgram) -> dict:
-            restore = self.overlays.remove(OWNER_BOOST)
+            restore = self.overlays.remove(OWNER_BOOST, start=now)
             days = [list(day) for day in fresh.days]
             for (day, slot), orig in restore.items():
                 days[day][slot] = orig
@@ -279,7 +298,9 @@ class ChronoManager:
     async def async_stop_boost(self) -> None:
         """End the start/stop heating period now."""
         self.boost_until = None
-        await self._async_run(lambda fresh: self.overlays.remove(OWNER_BOOST))
+        now = now_local()
+        # past slots stay until the daily cleanup, see cleanup_cutoff()
+        await self._async_run(lambda fresh: self.overlays.remove(OWNER_BOOST, start=now))
 
     async def async_set_base_day(self, day: int, slots: list[int]) -> None:
         """Replace the weekly program of one day, keeping temporary changes."""
@@ -314,6 +335,7 @@ class ChronoManager:
 
     async def async_remove_overlays(self, start: datetime, end: datetime) -> None:
         """Remove all temporary changes in [start, end)."""
+        start = max(start, now_local())
         await self._async_run(lambda fresh: self.overlays.remove(None, start, end))
 
     async def async_sync_clock(self, force: bool = False) -> None:
@@ -353,14 +375,14 @@ class ChronoManager:
             stale.append(OWNER_SMART)
         if not enabled or strategy != STRATEGY_CHRONO:
             stale.append(OWNER_SMART_OFF)
-        stale = [owner for owner in stale if self.overlays.has_owner(owner)]
+        stale = [owner for owner in stale if self.overlays.has_owner(owner, now)]
         if stale:
             self.smart_started = None
 
             def release(fresh: ChronoProgram) -> dict:
                 restore: dict = {}
                 for owner in stale:
-                    restore.update(self.overlays.remove(owner))
+                    restore.update(self.overlays.remove(owner, start=now))
                 return restore
 
             await self._async_run(release)
@@ -426,13 +448,13 @@ class ChronoManager:
         min_runtime: timedelta,
     ) -> None:
         """Heat additionally whenever it is too cold."""
-        heating = self.overlays.has_owner(OWNER_SMART)
+        heating = self.overlays.has_owner(OWNER_SMART, now)
         if heating:
             ran_long_enough = self.smart_started is None or now - self.smart_started >= min_runtime
             if temperature >= target and ran_long_enough:
                 _LOGGER.info("Smart mode: %.1f °C reached target %.1f °C, stopping", temperature, target)
                 self.smart_started = None
-                await self._async_run(lambda fresh: self.overlays.remove(OWNER_SMART))
+                await self._async_run(lambda fresh: self.overlays.remove(OWNER_SMART, start=now))
                 return
         elif temperature <= target - hysteresis:
             _LOGGER.info("Smart mode: %.1f °C below target %.1f °C, starting", temperature, target)
@@ -471,10 +493,13 @@ class ChronoManager:
             if self.boost_until and self.boost_until <= now:
                 self.boost_until = None
                 self._save()
-            if any(
-                datetime.fromisoformat(key) + SLOT <= now for key in self.overlays.slots
+            # Daily cleanup: temporary changes of past days are restored from
+            # 02:00 on; the current day is never touched (see cleanup_cutoff).
+            cutoff = cleanup_cutoff(now)
+            if self.pending or any(
+                datetime.fromisoformat(key) + SLOT <= cutoff for key in self.overlays.slots
             ):
-                await self._async_run(lambda fresh: self.overlays.expire(now))
+                await self._async_run(lambda fresh: self.overlays.expire(cutoff))
             await self._async_ensure_chrono()
             await self.async_sync_clock()
             await self.async_evaluate_smart()

@@ -24,6 +24,17 @@ OWNER_SKIP = "skip"  # level 0: switch a slot of the base program off once
 OWNER_SMART_OFF = "smart_off"  # level 0: smart mode reached the target, overrides everything
 
 
+def cleanup_cutoff(now: datetime, hour: int = 2) -> datetime:
+    """Past slots before this moment may be restored.
+
+    Temporary changes of the current day stay in the table until the next day at
+    ``hour`` o'clock. Rewriting a slot that has just ended can make the stove
+    switch off, because its clock may run slightly behind.
+    """
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return midnight if now.hour >= hour else midnight - timedelta(days=1)
+
+
 def floor_slot(value: datetime) -> datetime:
     """Start of the slot containing value."""
     return value.replace(minute=value.minute - value.minute % 30, second=0, microsecond=0)
@@ -158,9 +169,12 @@ class OverlayTable:
         entry = self.slots.get(_key(floor_slot(when)))
         return bool(entry) and owner in entry["owners"]
 
-    def has_owner(self, owner: str) -> bool:
-        """Whether owner holds any slot."""
-        return any(owner in entry["owners"] for entry in self.slots.values())
+    def has_owner(self, owner: str, since: datetime | None = None) -> bool:
+        """Whether owner holds any slot (optionally only slots ending after since)."""
+        return any(
+            owner in entry["owners"] and (since is None or when + SLOT > since)
+            for when, entry in self._items()
+        )
 
     def ranges(self) -> list[dict]:
         """Contiguous overlay ranges with the same level and owners."""
@@ -193,3 +207,18 @@ def active_period(days: list[list[int]], now: datetime) -> tuple[datetime, datet
     while active(end) and end - current < WEEK:
         end += SLOT
     return start, end
+
+
+def apply_pending(days: list[list[int]], pending: dict[str, list[int]]) -> None:
+    """Apply restores that were not written yet (in place).
+
+    pending maps "day:slot" to [original level, level that was set]. A restore is
+    only applied while the slot still holds the level that was set; if it was
+    changed elsewhere in the meantime, that change wins and the entry is dropped.
+    """
+    for key, (orig, expected) in list(pending.items()):
+        day, slot = (int(x) for x in key.split(":"))
+        if days[day][slot] == expected:
+            days[day][slot] = orig
+        else:
+            del pending[key]
